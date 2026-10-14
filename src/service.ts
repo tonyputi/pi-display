@@ -4,15 +4,11 @@ import { connect, createServer, type Server, type Socket } from "node:net";
 import type { DisplayDriver } from "./display.ts";
 import { decodeFrame, encodeMessage, type EncodedFrame, type ServiceResponse } from "./protocol.ts";
 
-export const SOCKET_FILENAME = "pi-display.sock";
-
-/** Directory for the service socket: XDG_RUNTIME_DIR or /run/user/<uid>. */
-export function defaultRuntimeDir(): string {
-  return process.env.XDG_RUNTIME_DIR ?? `/run/user/${process.getuid()}`;
-}
+/** Fixed socket path: the systemd unit provides /run/pi-display via RuntimeDirectory=. Override with PI_DISPLAY_SOCKET. */
+export const DEFAULT_SOCKET_PATH = "/run/pi-display/pi-display.sock";
 
 export function defaultSocketPath(): string {
-  return `${defaultRuntimeDir()}/${SOCKET_FILENAME}`;
+  return process.env.PI_DISPLAY_SOCKET ?? DEFAULT_SOCKET_PATH;
 }
 
 export interface DisplayServiceOptions {

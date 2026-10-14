@@ -9,7 +9,7 @@ flowchart LR
     A["Pi session A"] -- JSONL --> S
     B["Pi session B"] -- JSONL --> S
     C["Pi session C"] -- JSONL --> S
-    S["pi-displayd<br/>detached process, socket: /run/user/<uid>/pi-display.sock"] --> D["DisplayDriver<br/>src/drivers/ssd1306.ts"]
+    S["pi-displayd<br/>system service, socket: /run/pi-display/pi-display.sock"] --> D["DisplayDriver<br/>src/drivers/ssd1306.ts"]
     D --> HW["SSD1306 OLED"]
 ```
 
@@ -19,20 +19,21 @@ flowchart LR
 - Client: `src/client.ts`; the extension (`extensions/index.ts`) starts the daemon on demand and shows the logo at session start.
 - Assets: `assets/pi.pbm` loaded via `src/assets.ts` (portable bitmap, PBM P1).
 
-The extension starts the daemon itself as a detached process the first time it is needed: no systemd, no root, no extra packages. Concurrent Pi sessions all talk to the one daemon, and the display never receives concurrent writes. The daemon keeps the last frame on screen and stays running after Pi exits; it starts again automatically with the next Pi session after a reboot or a crash.
+The daemon runs as a system systemd service: it starts at boot, restarts on failure, and survives Pi exits with the last frame on screen. Concurrent Pi sessions all talk to the one daemon, and the display never receives concurrent writes.
 
 ## User journey
 
-1. Install the extension, connect the display, start Pi.
-2. At the first session the extension starts `pi-displayd` and the display shows the logo — nothing else to do.
-3. `/display status` reports the daemon state; `/display start` starts it after a problem.
+1. Install the extension and start Pi.
+2. `/display setup` prints the unit file and the two `sudo systemctl` commands; run them once in your terminal.
+3. The display shows the logo, and every Pi session (even several at once) connects to the service automatically.
+4. `/display status` reports the daemon state at any time.
 
-To run the daemon by hand: `node daemon/pi-displayd.ts`.
+To run the daemon by hand (debugging): `sudo node daemon/pi-displayd.ts`, or set `PI_DISPLAY_SOCKET` to a user-writable path and run it as your user.
 
 ## Requirements
 
-- Linux with `i2c-dev` loaded and access to `/dev/i2c-1` (on the tested host, membership in the `i2c` group).
-- `i2c-bus` is a native Node.js module: building it needs `python3`, `make`, and `g++` (`build-essential` on Debian-based systems). No other system dependency: no systemd, no root.
+- Linux with systemd as init (DietPi, Raspberry Pi OS, Ubuntu, ...), `i2c-dev` loaded, and access to `/dev/i2c-1` for the service user (on the tested host, membership in the `i2c` group).
+- `i2c-bus` is a native Node.js module: building it needs `python3`, `make`, and `g++` (`build-essential` on Debian-based systems). No other system dependency and no extra packages.
 
 ## Development
 
