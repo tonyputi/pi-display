@@ -16,7 +16,7 @@ flowchart LR
 - Display contract: `src/display.ts` (`DisplayDriver` + a row-major monochrome `DisplayFrame`)
 - Hardware backend: `src/drivers/ssd1306.ts`
 - Service: `src/service.ts` + `daemon/pi-displayd.ts` — owns the display, serves newline-delimited JSON requests (`src/protocol.ts`). The bound socket doubles as the single-instance lock.
-- Client: `src/client.ts`; the extension (`extensions/index.ts`) starts the daemon on demand and shows the logo at session start.
+- Client: `src/client.ts`; the extension (`index.ts`) connects at session start and shows the logo.
 - Assets: `assets/pi.pbm` loaded via `src/assets.ts` (portable bitmap, PBM P1).
 
 The daemon runs as a system systemd service: it starts at boot, restarts on failure, and survives Pi exits with the last frame on screen. Concurrent Pi sessions all talk to the one daemon, and the display never receives concurrent writes.
@@ -40,7 +40,7 @@ To run the daemon by hand (debugging): `sudo node daemon/pi-displayd.ts`, or set
 ```sh
 npm install
 npm test
-pi --extension ./extensions/index.ts
+pi --extension ./index.ts
 ```
 
 Tests are hardware-free: the service and protocol are covered with a fake `DisplayDriver` and a real Unix socket in the temp directory.
