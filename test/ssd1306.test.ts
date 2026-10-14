@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { Ssd1306Display, SSD1306_DEFAULT_ADDRESS } from "../src/ssd1306.ts";
+import { loadPbmFrame, parsePbmFrame } from "../src/assets.ts";
+import type { DisplayFrame } from "../src/display.ts";
+import { Ssd1306Display, SSD1306_DEFAULT_ADDRESS } from "../src/drivers/ssd1306.ts";
 
 class FakeI2cDevice {
   readonly writes: Array<{ address: number; bytes: Buffer }> = [];
@@ -18,7 +20,16 @@ class FakeI2cDevice {
   }
 }
 
-test("initializes and renders the Pi logo using the selected I2C address", async () => {
+function testFrame(): DisplayFrame {
+  const pixels = new Uint8Array(128 * 64);
+  pixels[0] = 1;
+  pixels[3 * 128 + 3] = 1;
+  pixels[8 * 128 + 3] = 1;
+  pixels[63 * 128 + 127] = 1;
+  return { width: 128, height: 64, pixels };
+}
+
+test("initializes and renders a common display frame at the selected I2C address", async () => {
   const bus = new FakeI2cDevice();
   const display = await Ssd1306Display.initialize(bus, 0x3d);
 
@@ -30,17 +41,49 @@ test("initializes and renders the Pi logo using the selected I2C address", async
       0x81, 0x7f, 0xd9, 0xf1, 0xdb, 0x40, 0xa4, 0xa6, 0xaf,
     ]),
   });
+  assert.equal(display.width, 128);
+  assert.equal(display.height, 64);
 
-  await display.showPiLogo();
+  await display.render(testFrame());
   const frameWrites = bus.writes.slice(1);
   assert.equal(frameWrites.length, 65); // address-window command + 1024-byte framebuffer in 16-byte chunks
   assert.deepEqual(frameWrites[0].bytes, Buffer.from([0x00, 0x21, 0x00, 0x7f, 0x22, 0x00, 0x07]));
   assert.ok(frameWrites.slice(1).every(({ address, bytes }) => address === 0x3d && bytes.length === 17 && bytes[0] === 0x40));
-  assert.equal(frameWrites.slice(1).reduce((size, { bytes }) => size + bytes.length - 1, 0), 128 * 64 / 8);
-  assert.ok(frameWrites.slice(1).some(({ bytes }) => bytes.subarray(1).some((byte) => byte !== 0)));
+
+  const packed = Buffer.concat(frameWrites.slice(1).map(({ bytes }) => bytes.subarray(1)));
+  assert.equal(packed[0], 0x01);
+  assert.equal(packed[3], 0x08);
+  assert.equal(packed[128 + 3], 0x01);
+  assert.equal(packed[1023], 0x80);
+  assert.equal(packed.reduce((count, byte) => count + byte.toString(2).replaceAll("0", "").length, 0), 4);
 
   await display.close();
   assert.equal(bus.closed, true);
+});
+
+test("rejects frames with incompatible dimensions or pixel data", async () => {
+  const display = await Ssd1306Display.initialize(new FakeI2cDevice());
+  await assert.rejects(display.render({ width: 1, height: 1, pixels: new Uint8Array(1) }), /expects a 128x64 frame/);
+  await assert.rejects(display.render({ width: 128, height: 64, pixels: new Uint8Array(1) }), /must contain 8192 pixels/);
+});
+
+test("loads the Pi logo from its separate PBM asset", async () => {
+  const logo = await loadPbmFrame(new URL("../assets/pi-logo.pbm", import.meta.url));
+  assert.equal(logo.width, 128);
+  assert.equal(logo.height, 64);
+  assert.equal(logo.pixels.length, 128 * 64);
+  assert.ok(logo.pixels.some((pixel) => pixel === 1));
+  assert.ok(logo.pixels.some((pixel) => pixel === 0));
+});
+
+test("parses a small PBM image and rejects malformed assets", () => {
+  assert.deepEqual(parsePbmFrame("P1\n# test image\n2 2\n0 1\n1 0\n"), {
+    width: 2,
+    height: 2,
+    pixels: new Uint8Array([0, 1, 1, 0]),
+  });
+  assert.throws(() => parsePbmFrame("P3\n1 1\n0"), /expected PBM P1/);
+  assert.throws(() => parsePbmFrame("P1\n2 2\n0 1 0"), /expected 4 binary pixels/);
 });
 
 test("uses the documented default address", () => {
