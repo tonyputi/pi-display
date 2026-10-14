@@ -1,0 +1,24 @@
+{
+  "name": "pi-display",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pi extension for rendering to I2C displays",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tonyputi/pi-display.git"
+  },
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "i2c-bus": "^5.2.3"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "pi": {
+    "extensions": ["./extensions/index.ts"]
+  }
+}
