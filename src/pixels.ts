@@ -1,9 +1,11 @@
 import type { DisplayFrame } from "./display.ts";
 
-/** Set one pixel; coordinates outside the frame are ignored. */
-export function setPixel(frame: DisplayFrame, x: number, y: number, value: 0 | 1 = 1): void {
+/** Set one pixel; coordinates outside the frame are ignored. "xor" flips the pixel. */
+export function setPixel(frame: DisplayFrame, x: number, y: number, value: 0 | 1 | "xor" = 1): void {
   if (x < 0 || y < 0 || x >= frame.width || y >= frame.height) return;
-  frame.pixels[y * frame.width + x] = value;
+  const index = y * frame.width + x;
+  if (value === "xor") frame.pixels[index] = frame.pixels[index]! ? 0 : 1;
+  else frame.pixels[index] = value;
 }
 
 export function fillRect(frame: DisplayFrame, x: number, y: number, width: number, height: number, value: 0 | 1 = 1): void {

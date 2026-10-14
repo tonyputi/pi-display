@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 import { Compositor } from "../src/compositor.ts";
+import { loadDisplayConfig } from "../src/config.ts";
 import { loadFont, drawText, textWidth, truncateToWidth } from "../src/font.ts";
 import { parseSession, parseSessionId } from "../src/protocol.ts";
 import { createRenderQueue } from "../src/render-queue.ts";
@@ -10,7 +14,7 @@ const font = loadFont(new URL("../assets/font5x7.bin", import.meta.url));
 
 const logo: DisplayFrame = { width: 4, height: 4, pixels: new Uint8Array([1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]) };
 
-function session(overrides: Partial<Parameters<typeof parseSession>[0]> = {}): ReturnType<typeof parseSession> {
+function session(overrides: Partial<Record<string, any>> = {}): ReturnType<typeof parseSession> {
   return parseSession({
     id: "s1",
     name: "my-session",
@@ -44,8 +48,11 @@ test("validates session payloads", () => {
   assert.throws(() => parseSession({ ...session(), id: "" }), /non-empty id/);
   assert.throws(() => parseSession({ ...session(), state: "maybe" }), /state/);
   assert.throws(() => parseSession({ ...session(), cost: "free" }), /cost/);
+  assert.throws(() => parseSession({ ...session(), show: ["nonsense"] }), /show/);
   assert.throws(() => parseSessionId(42), /session_end/);
   assert.equal(parseSessionId("abc"), "abc");
+  assert.deepEqual(parseSession({ ...session(), show: undefined }).show, ["bar", "cost", "model", "state"]);
+  assert.deepEqual(parseSession(session({ show: ["bar"] })).show, ["bar"]);
 });
 
 test("shows the splash first, then the session page", () => {
@@ -87,6 +94,34 @@ test("rotates across pages and shows the page indicator", () => {
   assert.equal(compositor.pageCount, 2);
 });
 
+test("display config merges agent-wide and project settings, invalid falls back to defaults", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "pi-display-config-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const agentDir = join(root, "agent");
+  const projectDir = join(root, "project");
+  mkdirSync(agentDir, { recursive: true });
+  mkdirSync(join(projectDir, ".pi"), { recursive: true });
+  process.env.PI_AGENT_DIR = agentDir;
+  t.after(() => delete process.env.PI_AGENT_DIR);
+
+  // No settings at all → defaults.
+  assert.deepEqual(loadDisplayConfig(projectDir).show, ["bar", "cost", "model", "state"]);
+
+  writeFileSync(join(agentDir, "settings.json"), JSON.stringify({ "pi-display": { show: ["bar", "cost", "tokens"] } }));
+  assert.deepEqual(loadDisplayConfig(projectDir).show, ["bar", "cost", "tokens"]);
+
+  // Project wins.
+  writeFileSync(join(projectDir, ".pi", "settings.json"), JSON.stringify({ "pi-display": { show: ["bar"] } }));
+  assert.deepEqual(loadDisplayConfig(projectDir).show, ["bar"]);
+
+  // Invalid values fall back to defaults instead of breaking the page.
+  writeFileSync(join(projectDir, ".pi", "settings.json"), JSON.stringify({ "pi-display": { show: ["nonsense"] } }));
+  assert.deepEqual(loadDisplayConfig(projectDir).show, ["bar", "cost", "model", "state"]);
+  writeFileSync(join(projectDir, ".pi", "settings.json"), "{broken json");
+  // Broken project file → agent-wide config still applies.
+  assert.deepEqual(loadDisplayConfig(projectDir).show, ["bar", "cost", "tokens"]);
+});
+
 test("unknown context usage renders a hatched bar, not an empty one", () => {
   const compositor = new Compositor({ font, splashSeconds: 0 });
   compositor.setSession(session({ ctxPercent: null, ctxTokens: null, ctxWindow: null }));
@@ -95,6 +130,42 @@ test("unknown context usage renders a hatched bar, not an empty one", () => {
   assert.equal(pixelAt(page, 1, 20), 1);
   assert.equal(pixelAt(page, 2, 20), 0);
   assert.equal(pixelAt(page, 5, 20), 1);
+});
+
+test("the percentage is drawn XOR-style inside the bar", () => {
+  const compositor = new Compositor({ font, splashSeconds: 0 });
+  const scratch: DisplayFrame = { width: 128, height: 64, pixels: new Uint8Array(128 * 64) };
+  const label = "42%";
+  const x0 = Math.floor((128 - textWidth(label)) / 2);
+  drawText(scratch, font, label, x0, 18);
+  const firstSet = scratch.pixels.findIndex((p) => p === 1);
+  assert.ok(firstSet >= 0);
+
+  // Low fill: the glyph sits on emptiness → XOR lights it up.
+  compositor.setSession(session({ ctxPercent: 42 }));
+  assert.equal(compositor.buildFrame().pixels[firstSet]!, 1);
+  // High fill: the glyph sits on the filled part → XOR turns it dark.
+  compositor.setSession(session({ ctxPercent: 80 }));
+  assert.equal(compositor.buildFrame().pixels[firstSet]!, 0);
+});
+
+test("tokens appear only when requested; hidden cost and model leave no trace", () => {
+  const compositor = new Compositor({ font, splashSeconds: 0 });
+  compositor.setSession(session({ show: ["bar", "tokens"] }));
+  const page = compositor.buildFrame();
+  const scratch: DisplayFrame = { width: 128, height: 64, pixels: new Uint8Array(128 * 64) };
+  drawText(scratch, font, "84k/200k", 1, 32);
+  assert.ok(scratch.pixels.some((p) => p === 1));
+  // Every glyph pixel of the tokens line must also be lit on the page (it was drawn there too).
+  let match = true;
+  for (const [i, p] of scratch.pixels.entries()) if (p === 1 && page.pixels[i] !== 1) match = false;
+  assert.equal(match, true);
+  assert.equal(page.pixels.some((p) => p === 1), true);
+
+  const minimal = new Compositor({ font, splashSeconds: 0 });
+  minimal.setSession(session({ show: ["bar"], cost: null, model: null }));
+  const bare = minimal.buildFrame();
+  assert.equal(pixelAt(bare, 0, 63), 0); // no footer when neither state nor model is shown
 });
 
 test("the render queue coalesces concurrent renders and never overlaps them", async () => {

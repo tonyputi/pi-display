@@ -33,7 +33,7 @@ export function truncateToWidth(text: string, maxWidth: number): string {
 }
 
 /** Draw text with its top-left corner at (x, y). Characters outside printable ASCII render as '?'. */
-export function drawText(frame: DisplayFrame, font: BitmapFont, text: string, x: number, y: number, value: 0 | 1 = 1): void {
+export function drawText(frame: DisplayFrame, font: BitmapFont, text: string, x: number, y: number, value: 0 | 1 | "xor" = 1): void {
   for (const [index, char] of [...text].entries()) {
     const code = char.codePointAt(0)!;
     const glyph = code >= 32 && code <= 126 ? code : 63;

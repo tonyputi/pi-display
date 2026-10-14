@@ -60,21 +60,22 @@ compositor never reflows, and future icons drop into an existing slot:
 ```
 y=0   ┌────────────────────────┐
       │ my-session       1/3   │  header: session name left, page indicator right
-y=16  │ ██████████░░░░░░░░░░   │  body: context bar (10 px tall, full width)
-y=32  │ ctx 42%   84k/200k     │  body: percent + tokens
-      │ $1.23                  │  body: cost
+y=16  │ ██████████▒42%▒░░░░░   │  body: context bar, 128×12, % XOR-drawn inside
+y=32  │ 84k/200k               │  body: tokens (only when show includes "tokens")
+      │ $1.23                  │  body: cost (hidden when null or not shown)
 y=56  │ ▓▓ ● WORK    gpt-6 ▓▓▓ │  footer (inverted): state left, model right
       └────────────────────────┘
 ```
 
-- **Header** (row 0, 8 px): session name, truncated to 17 chars; page
-  indicator (`1/3`) on the right while rotating.
-- **Body** (y=16..47): the context bar — the visual anchor, 128 px wide,
-  10 px tall, 1 px border, fill = `ctxPercent` (`null` → hatched fill) — plus
-  the numbers line and the cost line.
-- **Footer** (y=56..63, 8 px, inverted strip): left slot = state icon (8×8)
-  + `WORK` / `IDLE` (later: thinking spinner, attention flash); right slot =
-  model name. Phase-2 icons replace the 8×8 glyph in place — no reflow.
+- **Header** (row 0, 8 px): session name, truncated; page indicator (`1/3`) on
+  the right while rotating.
+- **Context bar** (y=16, 12 px tall): the visual anchor. Percentage drawn
+  inside with XOR so it stays readable over fill and emptiness; hatched fill
+  when usage is unknown.
+- **Tokens / cost** (y=32/40): optional lines; everything not in `show` simply
+  isn't drawn, and the page never reflows (positions are fixed).
+- **Footer** (y=56, inverted strip): left slot = state glyph (8×8) + `WORK` /
+  `IDLE`; right slot = model name. Phase-2 sprites replace the glyph in place.
 
 Splash — shown by the daemon **at service start** (logo, ~5 s), so the logo is
 always seen at least once per boot:
@@ -103,14 +104,44 @@ Idle screen — zero sessions: small logo centered + inverted footer reading
 - Bars and glyphs are plain pixel operations in the daemon (fill-rect, hline).
 - Text truncates to 21 chars; no scrolling in v1.
 
+## Configuration
+
+**Page content** lives in pi settings (read by the extension, so it can differ
+per project): the `pi-display` key in `~/.pi/agent/settings.json` (agent-wide)
+and `<project>/.pi/settings.json` (project wins). `show` selects page elements:
+
+```json
+{ "pi-display": { "show": ["bar", "cost", "model", "state", "tokens"] } }
+```
+
+Options: `bar`, `cost`, `model`, `state`, `tokens`. Default: everything except
+`tokens` (bar, cost, model, state). Invalid or missing entries fall back to
+the defaults; a broken project file falls back to the agent-wide value.
+
+**Device behavior** (splash duration, rotation speed, idle animation) belongs
+to the daemon and will live in `~/.config/pi-display/config.json` when the
+mascot lands. Defaults until then: splash 5 s, rotation 4 s.
+
+## The mascot (phase 2)
+
+The mascot owns **idle time**; data owns **busy time**. No conflict for the
+full screen:
+
+- No sessions → full-screen procedural blob (breathing, blinking, drawn with
+  fills — no sprite assets), 2–4 fps from the compositor tick.
+- Sessions active → the same character shrinks to an 8×8 sprite in the
+  footer's state slot (2 frames: blink).
+- Attention needed → full-screen inversion pulse.
+
 ## Phases
 
 1. **v1 — pages**: protocol v2, font asset, compositor with splash/idle/rotation,
-   session page (name, ctx bar, tokens, cost), extension pushes data on the
-   events above.
-2. **v2 — state icons**: `state` field gains the current tool (`tool_execution_*`),
-   animated glyph in the footer's left slot; attention flash takes over the
-   whole frame (full inversion pulses) when input is needed.
+   session page (name, context bar with XOR percentage, cost, state, model,
+   optional tokens), `pi-display.show` configuration, extension pushes data on
+   the events above.
+2. **v2 — state icons**: animated glyph in the footer's left slot; attention
+   flash takes over the whole frame (full inversion pulses) when input is
+   needed.
 3. **Later**: model name line, multiple status lines, maybe themes (inverted
    screensaver after long idle).
 
@@ -121,3 +152,4 @@ Idle screen — zero sessions: small logo centered + inverted footer reading
 - Cost accuracy across model switches mid-session: acceptable as approximation?
 - Rotation order: alphabetical by name vs most-recently-active first?
 - Should `/display` gain a `next` subcommand to force the next page?
+- Blob proportions: rounder/bigger? Eye size and blink rate?

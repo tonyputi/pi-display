@@ -9,6 +9,10 @@ export interface EncodedFrame {
 
 export type SessionState = "working" | "idle";
 
+/** Page elements a session can request; anything not listed is not drawn. */
+export const SHOW_OPTIONS = ["bar", "cost", "model", "state", "tokens"] as const;
+export const DEFAULT_SHOW = ["bar", "cost", "model", "state"] as const;
+
 /** One pi session as reported by its extension; null means unknown right now. */
 export interface SessionData {
   id: string;
@@ -19,6 +23,8 @@ export interface SessionData {
   ctxWindow: number | null;
   cost: number | null;
   state: SessionState;
+  /** Which page elements to draw; defaults to DEFAULT_SHOW. */
+  show: string[];
 }
 
 export type ServiceRequest =
@@ -41,6 +47,13 @@ export function parseSession(value: unknown): SessionData {
     }
   }
   if (raw.model !== null && typeof raw.model !== "string") throw new Error("invalid session: model must be a string or null");
+  let show: string[] = [...DEFAULT_SHOW];
+  if (raw.show !== undefined) {
+    if (!Array.isArray(raw.show) || raw.show.some((s) => !SHOW_OPTIONS.includes(s))) {
+      throw new Error(`invalid session: show must be a subset of ${SHOW_OPTIONS.join(", ")}`);
+    }
+    show = raw.show as string[];
+  }
   return {
     id: raw.id,
     name: raw.name,
@@ -50,6 +63,7 @@ export function parseSession(value: unknown): SessionData {
     ctxWindow: raw.ctxWindow as number | null,
     cost: raw.cost as number | null,
     state: raw.state,
+    show,
   };
 }
 

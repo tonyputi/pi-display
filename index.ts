@@ -2,6 +2,7 @@ import { basename } from "node:path";
 import { userInfo } from "node:os";
 import { fileURLToPath } from "node:url";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import { loadDisplayConfig } from "./src/config.ts";
 import { DisplayClient } from "./src/client.ts";
 import { DEFAULT_SOCKET_PATH, defaultSocketPath } from "./src/service.ts";
 import type { SessionData } from "./src/protocol.ts";
@@ -20,16 +21,19 @@ export default function (pi: ExtensionAPI) {
     isIdle?: () => boolean;
     getContextUsage?: () => { tokens: number | null; contextWindow: number; percent: number | null } | undefined;
   }): SessionData {
+    const config = loadDisplayConfig(ctx.cwd);
+    const show = new Set(config.show);
     const usage = ctx.getContextUsage?.();
     return {
       id: ctx.sessionManager.getSessionId(),
       name: ctx.sessionManager.getSessionName() ?? basename(ctx.cwd) ?? "session",
-      model: ctx.model?.name ?? ctx.model?.id ?? null,
-      ctxPercent: usage?.percent ?? null,
-      ctxTokens: usage?.tokens ?? null,
-      ctxWindow: usage?.contextWindow ?? null,
-      cost: estimateCost(ctx),
+      model: show.has("model") ? ctx.model?.name ?? ctx.model?.id ?? null : null,
+      ctxPercent: show.has("bar") ? usage?.percent ?? null : null,
+      ctxTokens: show.has("tokens") ? usage?.tokens ?? null : null,
+      ctxWindow: show.has("tokens") ? usage?.contextWindow ?? null : null,
+      cost: show.has("cost") ? estimateCost(ctx) : null,
       state: ctx.isIdle?.() === false ? "working" : "idle",
+      show: config.show,
     };
   }
 
