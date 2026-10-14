@@ -64,9 +64,8 @@ test("shows the splash first, then the session page", () => {
   assert.notEqual(compositor.buildFrame(), logo);
 
   const page = compositor.buildFrame();
-  assert.equal(pixelAt(page, 0, 63), 1); // inverted footer: bottom-left corner lit
-  assert.equal(pixelAt(page, 63, 44), 1); // bar top border at y=44
-  assert.equal(pixelAt(page, 63, 55), 1); // bar bottom border at y=55
+  assert.equal(pixelAt(page, 0, 60), 1); // footer strip filled to 42%: left side lit
+  assert.equal(pixelAt(page, 100, 56), 0); // beyond the fill, above the text row: dark
 });
 
 test("renders the idle screen when no sessions are registered", () => {
@@ -123,29 +122,28 @@ test("display config merges agent-wide and project settings, invalid falls back 
   assert.deepEqual(loadDisplayConfig(projectDir).show, ["bar", "cost", "tokens"]);
 });
 
-test("unknown context usage renders a hatched bar, not an empty one", () => {
+test("unknown context usage renders a hatched strip, not an empty one", () => {
   const compositor = new Compositor({ font, splashSeconds: 0 });
-  compositor.setSession(session({ ctxPercent: null, ctxTokens: null, ctxWindow: null }));
+  compositor.setSession(session({ ctxPercent: null, ctxTokens: null, ctxWindow: null, show: ["bar"] }));
   const page = compositor.buildFrame();
-  // Inside the bar (y=50): hatching lights columns 1, 5, 9… and not 2.
-  assert.equal(pixelAt(page, 1, 50), 1);
-  assert.equal(pixelAt(page, 2, 50), 0);
-  assert.equal(pixelAt(page, 5, 50), 1);
+  // Hatching lights every other column and not the ones between.
+  assert.equal(pixelAt(page, 0, 63), 1);
+  assert.equal(pixelAt(page, 1, 63), 0);
+  assert.equal(pixelAt(page, 2, 63), 1);
 });
 
-test("the percentage is drawn XOR-style inside the bar", () => {
+test("the footer is the context bar: fill tracks usage, percentage XOR-drawn on top", () => {
   const compositor = new Compositor({ font, splashSeconds: 0 });
   const scratch: DisplayFrame = { width: 128, height: 64, pixels: new Uint8Array(128 * 64) };
   const label = "42%";
-  const x0 = Math.floor((128 - textWidth(label)) / 2);
-  drawText(scratch, font, label, x0, 46);
+  drawText(scratch, font, label, 8, 57);
   const firstSet = scratch.pixels.findIndex((p) => p === 1);
   assert.ok(firstSet >= 0);
 
-  // Low fill: the glyph sits on emptiness → XOR lights it up.
-  compositor.setSession(session({ ctxPercent: 42 }));
+  // Small fill: the percentage sits on emptiness → XOR lights it up.
+  compositor.setSession(session({ ctxPercent: 5 }));
   assert.equal(compositor.buildFrame().pixels[firstSet]!, 1);
-  // High fill: the glyph sits on the filled part → XOR turns it dark.
+  // Large fill: the percentage sits inside the filled strip → XOR turns it dark.
   compositor.setSession(session({ ctxPercent: 80 }));
   assert.equal(compositor.buildFrame().pixels[firstSet]!, 0);
 });
@@ -166,7 +164,8 @@ test("tokens appear only when requested; hidden cost and model leave no trace", 
   const minimal = new Compositor({ font, splashSeconds: 0 });
   minimal.setSession(session({ show: ["bar"], cost: null, model: null }));
   const bare = minimal.buildFrame();
-  assert.equal(pixelAt(bare, 0, 63), 0); // no footer when neither state nor model is shown
+  assert.equal(pixelAt(bare, 0, 63), 1); // the footer IS the bar: filled at 42%
+  assert.equal(pixelAt(bare, 127, 60), 0); // no model text on the right
 });
 
 test("the render queue coalesces concurrent renders and never overlaps them", async () => {

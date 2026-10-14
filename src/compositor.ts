@@ -1,12 +1,10 @@
 import type { DisplayFrame } from "./display.ts";
-import { drawRect, fillRect, setPixel } from "./pixels.ts";
-import { drawText, GLYPH_ADVANCE, GLYPH_HEIGHT, textWidth, truncateToWidth, type BitmapFont } from "./font.ts";
+import { fillRect, setPixel } from "./pixels.ts";
+import { drawText, GLYPH_ADVANCE, textWidth, truncateToWidth, type BitmapFont } from "./font.ts";
 import type { SessionData } from "./protocol.ts";
 
 export const SCREEN_WIDTH = 128;
 export const SCREEN_HEIGHT = 64;
-const BAR_Y = 44;
-const BAR_HEIGHT = 12;
 const TOKENS_Y = 10;
 const COST_Y = 18;
 const FOOTER_Y = 56;
@@ -98,48 +96,47 @@ export class Compositor {
       drawText(frame, this.font, indicator, SCREEN_WIDTH - 1 - textWidth(indicator), 0);
     }
 
-    if (show.has("bar")) this.drawContextBar(frame, page);
     if (show.has("tokens") && page.ctxTokens !== null && page.ctxWindow !== null) {
       drawText(frame, this.font, truncateToWidth(`${formatTokens(page.ctxTokens)}/${formatTokens(page.ctxWindow)}`, SCREEN_WIDTH - 2), 1, TOKENS_Y);
     }
     if (show.has("cost") && page.cost !== null) {
       drawText(frame, this.font, `$${page.cost.toFixed(2)}`, 1, COST_Y);
     }
-    if (show.has("state") || (show.has("model") && page.model)) this.drawFooter(frame, page, show);
+    if (show.has("bar") || show.has("state") || (show.has("model") && page.model)) this.drawFooter(frame, page, show);
     return frame;
   }
 
-  private drawContextBar(frame: DisplayFrame, page: SessionData): void {
-    drawRect(frame, 0, BAR_Y, SCREEN_WIDTH, BAR_HEIGHT);
-    const innerWidth = SCREEN_WIDTH - 2;
-    let filled = 0;
-    if (page.ctxPercent === null) {
-      // Unknown usage (e.g. right after compaction): hatched fill.
-      for (let x = 1; x <= innerWidth; x += 4) fillRect(frame, x, BAR_Y + 1, 1, BAR_HEIGHT - 2);
-    } else {
-      const clamped = Math.min(100, Math.max(0, page.ctxPercent));
-      filled = Math.round((innerWidth * clamped) / 100);
-      fillRect(frame, 1, BAR_Y + 1, filled, BAR_HEIGHT - 2);
-    }
-    // Percentage inside the bar, XOR-drawn so it stays readable over fill and emptiness.
-    const label = page.ctxPercent === null ? "--%" : `${Math.round(page.ctxPercent)}%`;
-    drawText(frame, this.font, label, Math.floor((SCREEN_WIDTH - textWidth(label)) / 2), BAR_Y + Math.floor((BAR_HEIGHT - GLYPH_HEIGHT) / 2), "xor");
-  }
-
+  /** The inverted footer doubles as the context bar: it fills with usage, and
+   *  symbol, percentage, and model are XOR-drawn on top of fill and emptiness. */
   private drawFooter(frame: DisplayFrame, page: SessionData, show: Set<string>): void {
-    fillRect(frame, 0, FOOTER_Y, SCREEN_WIDTH, FOOTER_HEIGHT);
+    const bar = show.has("bar");
+    if (bar && page.ctxPercent === null) {
+      // Unknown usage (e.g. right after compaction): hatched strip.
+      for (let x = 0; x < SCREEN_WIDTH; x += 2) fillRect(frame, x, FOOTER_Y, 1, FOOTER_HEIGHT);
+    } else if (bar) {
+      const clamped = Math.min(100, Math.max(0, page.ctxPercent!));
+      fillRect(frame, 0, FOOTER_Y, Math.round((SCREEN_WIDTH * clamped) / 100), FOOTER_HEIGHT);
+    } else {
+      fillRect(frame, 0, FOOTER_Y, SCREEN_WIDTH, FOOTER_HEIGHT);
+    }
+    const value: 0 | "xor" = bar ? "xor" : 0;
+
     if (show.has("state")) {
       // Working: right-pointing triangle (play). Idle: pause bars.
       if (page.state === "working") {
-        for (let r = 0; r < 7; r++) fillRect(frame, 2, FOOTER_Y + 1 + r, 1 + Math.min(r, 6 - r), 1, 0);
+        for (let r = 0; r < 7; r++) fillRect(frame, 2, FOOTER_Y + 1 + r, 1 + Math.min(r, 6 - r), 1, value);
       } else {
-        fillRect(frame, 2, FOOTER_Y + 2, 2, 5, 0);
-        fillRect(frame, 5, FOOTER_Y + 2, 2, 5, 0);
+        fillRect(frame, 2, FOOTER_Y + 2, 2, 5, value);
+        fillRect(frame, 5, FOOTER_Y + 2, 2, 5, value);
       }
     }
+    if (bar) {
+      const label = page.ctxPercent === null ? "--%" : `${Math.round(page.ctxPercent)}%`;
+      drawText(frame, this.font, label, 8, FOOTER_Y + 1, value);
+    }
     if (show.has("model") && page.model) {
-      const model = truncateToWidth(page.model, SCREEN_WIDTH - 2 - 8);
-      if (model) drawText(frame, this.font, model, SCREEN_WIDTH - 1 - textWidth(model), FOOTER_Y + 1, 0);
+      const model = truncateToWidth(page.model, SCREEN_WIDTH - 1 - (bar ? 25 : 2));
+      if (model) drawText(frame, this.font, model, SCREEN_WIDTH - 1 - textWidth(model), FOOTER_Y + 1, value);
     }
   }
 
