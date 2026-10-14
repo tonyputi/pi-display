@@ -3,6 +3,7 @@ import { loadPbmFrame } from "../src/assets.ts";
 import { Compositor } from "../src/compositor.ts";
 import { Ssd1306Display } from "../src/drivers/ssd1306.ts";
 import { loadFont } from "../src/font.ts";
+import { createRenderQueue } from "../src/render-queue.ts";
 import { DisplayService } from "../src/service.ts";
 
 const font = loadFont(new URL("../assets/font5x7.bin", import.meta.url));
@@ -12,15 +13,15 @@ const compositor = new Compositor({ font, splash });
 
 let display: Ssd1306Display | undefined;
 
-/** Redraw the screen from the compositor state; no-op until the display is open. */
-async function render(): Promise<void> {
+/** Redraw the screen from the compositor state; coalesced so concurrent requests never tear the frame. */
+const render = createRenderQueue(async () => {
   if (!display) return;
   try {
     await display.render(compositor.buildFrame());
   } catch (error) {
     console.error("pi-display: render failed", error);
   }
-}
+});
 
 const service = await DisplayService.create(undefined, {
   onSession: (session) => {
@@ -36,7 +37,7 @@ const service = await DisplayService.create(undefined, {
 try {
   display = await Ssd1306Display.open();
   service.setDisplay(display);
-  await render(); // splash (logo)
+  render(); // splash (logo)
   const timer = setInterval(() => {
     if (compositor.tick()) void render(display);
   }, 1000);

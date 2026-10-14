@@ -3,6 +3,7 @@ import test from "node:test";
 import { Compositor } from "../src/compositor.ts";
 import { loadFont, drawText, textWidth, truncateToWidth } from "../src/font.ts";
 import { parseSession, parseSessionId } from "../src/protocol.ts";
+import { createRenderQueue } from "../src/render-queue.ts";
 import type { DisplayFrame } from "../src/display.ts";
 
 const font = loadFont(new URL("../assets/font5x7.bin", import.meta.url));
@@ -94,4 +95,27 @@ test("unknown context usage renders a hatched bar, not an empty one", () => {
   assert.equal(pixelAt(page, 1, 20), 1);
   assert.equal(pixelAt(page, 2, 20), 0);
   assert.equal(pixelAt(page, 5, 20), 1);
+});
+
+test("the render queue coalesces concurrent renders and never overlaps them", async () => {
+  let active = 0;
+  let overlap = false;
+  let renders = 0;
+  const delay = () => new Promise((resolve) => setTimeout(resolve, 10));
+  const queue = createRenderQueue(async () => {
+    if (active > 0) overlap = true;
+    active += 1;
+    await delay();
+    active -= 1;
+    renders += 1;
+  });
+
+  queue();
+  queue();
+  queue();
+  queue();
+  await delay();
+  await delay();
+  assert.equal(overlap, false); // never two renders at once
+  assert.ok(renders <= 2); // burst coalesced into at most two passes
 });
