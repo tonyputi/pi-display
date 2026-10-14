@@ -1,6 +1,6 @@
 import { connect, type Socket } from "node:net";
 import type { DisplayFrame } from "./display.ts";
-import { encodeFrame, encodeMessage, type ServiceRequest, type ServiceResponse } from "./protocol.ts";
+import { encodeFrame, encodeMessage, type ServiceRequest, type ServiceResponse, type SessionData } from "./protocol.ts";
 
 interface PendingResponse {
   resolve: (response: ServiceResponse) => void;
@@ -45,6 +45,22 @@ export class DisplayClient {
     const response = await this.request({ type: "show", frame: encodeFrame(frame) });
     if (response.type === "error") {
       throw new Error(`pi-display service rejected the frame: ${response.message}`);
+    }
+  }
+
+  /** Push this session's page data to the service. Resolves once the service confirms. */
+  async pushSession(session: SessionData): Promise<void> {
+    const response = await this.request({ type: "session", session });
+    if (response.type === "error") {
+      throw new Error(`pi-display service rejected the session update: ${response.message}`);
+    }
+  }
+
+  /** Remove this session's page from the service. */
+  async endSession(id: string): Promise<void> {
+    const response = await this.request({ type: "session_end", id });
+    if (response.type === "error") {
+      throw new Error(`pi-display service rejected the session end: ${response.message}`);
     }
   }
 

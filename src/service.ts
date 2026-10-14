@@ -2,7 +2,7 @@ import { mkdirSync, unlinkSync } from "node:fs";
 import { dirname } from "node:path";
 import { connect, createServer, type Server, type Socket } from "node:net";
 import type { DisplayDriver } from "./display.ts";
-import { decodeFrame, encodeMessage, type EncodedFrame, type ServiceResponse } from "./protocol.ts";
+import { decodeFrame, encodeMessage, parseSession, parseSessionId, type EncodedFrame, type ServiceResponse, type SessionData } from "./protocol.ts";
 
 /** Fixed socket path: the systemd unit provides /run/pi-display via RuntimeDirectory=. Override with PI_DISPLAY_SOCKET. */
 export const DEFAULT_SOCKET_PATH = "/run/pi-display/pi-display.sock";
@@ -15,6 +15,13 @@ export interface DisplayServiceOptions {
   socketPath?: string;
 }
 
+export interface ServiceHandlers {
+  /** Called for every valid session upsert. */
+  onSession?: (session: SessionData) => void;
+  /** Called when a session ends. */
+  onSessionEnd?: (id: string) => void;
+}
+
 /**
  * Owns the display and serves JSONL requests from Pi extension clients.
  * The bound socket doubles as the single-instance lock: only one service
@@ -24,17 +31,17 @@ export class DisplayService {
   private readonly server: Server;
   private readonly sockets = new Set<Socket>();
   private display?: DisplayDriver;
+  private readonly handlers: ServiceHandlers;
 
-  private readonly path: string;
-
-  private constructor(path: string, server: Server) {
+  private constructor(path: string, server: Server, handlers: ServiceHandlers) {
     this.path = path;
     this.server = server;
+    this.handlers = handlers;
     server.on("connection", (socket) => this.handleConnection(socket));
   }
 
   /** Bind the service socket. Throws when another service instance is already listening. */
-  static async create(socketPath: string = defaultSocketPath()): Promise<DisplayService> {
+  static async create(socketPath: string = defaultSocketPath(), handlers: ServiceHandlers = {}): Promise<DisplayService> {
     if (await isSocketAlive(socketPath)) {
       throw new Error(`another pi-display service is already listening on ${socketPath}`);
     }
@@ -53,7 +60,7 @@ export class DisplayService {
         resolve();
       });
     });
-    return new DisplayService(socketPath, server);
+    return new DisplayService(socketPath, server, handlers);
   }
 
   get socketPath(): string {
@@ -81,7 +88,25 @@ export class DisplayService {
     if (!request || typeof request !== "object") {
       return { type: "error", message: "invalid request" };
     }
-    const { type, frame } = request as { type?: unknown; frame?: unknown };
+    const { type, frame, session, id } = request as { type?: unknown; frame?: unknown; session?: unknown; id?: unknown };
+    if (type === "session") {
+      if (!this.handlers.onSession) return { type: "error", message: "service has no session handler" };
+      try {
+        this.handlers.onSession(parseSession(session));
+        return { type: "ok" };
+      } catch (error) {
+        return { type: "error", message: error instanceof Error ? error.message : String(error) };
+      }
+    }
+    if (type === "session_end") {
+      if (!this.handlers.onSessionEnd) return { type: "error", message: "service has no session_end handler" };
+      try {
+        this.handlers.onSessionEnd(parseSessionId(id));
+        return { type: "ok" };
+      } catch (error) {
+        return { type: "error", message: error instanceof Error ? error.message : String(error) };
+      }
+    }
     if (type !== "show") {
       return { type: "error", message: `unsupported message type ${String(type)}` };
     }
