@@ -4,10 +4,13 @@ A [Pi](https://pi.dev) extension that drives I²C displays. The first implementa
 
 ## Architecture
 
-```
-Pi session A ──┐
-Pi session B ──┼── JSONL over Unix socket ──> pi-displayd ──> DisplayDriver (src/drivers/ssd1306.ts)
-Pi session C ──┘         $XDG_RUNTIME_DIR/pi-display.sock
+```mermaid
+flowchart LR
+    A["Pi session A"] -- JSONL --> S
+    B["Pi session B"] -- JSONL --> S
+    C["Pi session C"] -- JSONL --> S
+    S["pi-displayd<br/>$XDG_RUNTIME_DIR/pi-display.sock"] --> D["DisplayDriver<br/>src/drivers/ssd1306.ts"]
+    D --> HW["SSD1306 OLED"]
 ```
 
 - Display contract: `src/display.ts` (`DisplayDriver` + a row-major monochrome `DisplayFrame`)
