@@ -9,32 +9,30 @@ flowchart LR
     A["Pi session A"] -- JSONL --> S
     B["Pi session B"] -- JSONL --> S
     C["Pi session C"] -- JSONL --> S
-    S["pi-displayd<br/>$XDG_RUNTIME_DIR/pi-display.sock"] --> D["DisplayDriver<br/>src/drivers/ssd1306.ts"]
+    S["pi-displayd<br/>detached process, socket: /run/user/<uid>/pi-display.sock"] --> D["DisplayDriver<br/>src/drivers/ssd1306.ts"]
     D --> HW["SSD1306 OLED"]
 ```
 
 - Display contract: `src/display.ts` (`DisplayDriver` + a row-major monochrome `DisplayFrame`)
 - Hardware backend: `src/drivers/ssd1306.ts`
 - Service: `src/service.ts` + `daemon/pi-displayd.ts` — owns the display, serves newline-delimited JSON requests (`src/protocol.ts`). The bound socket doubles as the single-instance lock.
-- Client: `src/client.ts`; the extension (`extensions/index.ts`) uses it to show the logo at session start and stays idle otherwise.
+- Client: `src/client.ts`; the extension (`extensions/index.ts`) starts the daemon on demand and shows the logo at session start.
 - Assets: `assets/pi.pbm` loaded via `src/assets.ts` (portable bitmap, PBM P1).
 
-Multiple Pi processes are supported: every session talks to the one service, and the display never receives concurrent writes.
+The extension starts the daemon itself as a detached process the first time it is needed: no systemd, no root, no extra packages. Concurrent Pi sessions all talk to the one daemon, and the display never receives concurrent writes. The daemon keeps the last frame on screen and stays running after Pi exits; it starts again automatically with the next Pi session after a reboot or a crash.
 
 ## User journey
 
-1. Install the extension and start Pi.
-2. If the service is not running, Pi shows a warning suggesting `/display setup`.
-3. `/display setup` checks the environment, writes a systemd user unit (`~/.config/systemd/user/pi-display.service`), enables and starts it, and confirms once the display shows the logo.
-4. From then on it is invisible: sessions connect to the service automatically. `/display status` reports the current state at any time.
+1. Install the extension, connect the display, start Pi.
+2. At the first session the extension starts `pi-displayd` and the display shows the logo — nothing else to do.
+3. `/display status` reports the daemon state; `/display start` starts it after a problem.
 
-The service keeps the last frame on screen when Pi exits; it only releases the I²C handle on shutdown.
+To run the daemon by hand: `node daemon/pi-displayd.ts`.
 
 ## Requirements
 
 - Linux with `i2c-dev` loaded and access to `/dev/i2c-1` (on the tested host, membership in the `i2c` group).
-- `i2c-bus` is a native Node.js module: building it needs `python3`, `make`, and `g++` (`build-essential` on Debian-based systems).
-- systemd (user services) for `/display setup`; the daemon also runs standalone with `node daemon/pi-displayd.ts`.
+- `i2c-bus` is a native Node.js module: building it needs `python3`, `make`, and `g++` (`build-essential` on Debian-based systems). No other system dependency: no systemd, no root.
 
 ## Development
 
