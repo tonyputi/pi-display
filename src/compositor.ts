@@ -5,10 +5,10 @@ import type { SessionData } from "./protocol.ts";
 
 export const SCREEN_WIDTH = 128;
 export const SCREEN_HEIGHT = 64;
-const BAR_Y = 10;
+const BAR_Y = 44;
 const BAR_HEIGHT = 12;
-const TOKENS_Y = 25;
-const COST_Y = 34;
+const TOKENS_Y = 10;
+const COST_Y = 18;
 const FOOTER_Y = 56;
 const FOOTER_HEIGHT = 8;
 const SPLASH_SECONDS = 5;

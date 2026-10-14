@@ -60,20 +60,21 @@ compositor never reflows, and future icons drop into an existing slot:
 ```
 y=0   ┌────────────────────────┐
       │ my-session       1/3   │  header: session name left, page indicator right
-y=16  │ ██████████▒42%▒░░░░░   │  body: context bar, 128×12, % XOR-drawn inside
-y=32  │ 84k/200k               │  body: tokens (only when show includes "tokens")
+y=10  │ 84k/200k               │  body: tokens (only when show includes "tokens")
       │ $1.23                  │  body: cost (hidden when null or not shown)
-y=56  │ ▓▓ ● WORK    gpt-6 ▓▓▓ │  footer (inverted): state left, model right
+y=44  │ ██████████▒42%▒░░░░░   │  body: context bar, 128×12, % XOR-drawn inside
+y=56  │ ▓▓ ▶        gpt-6 ▓▓▓ │  footer (inverted): state symbol left, model right
       └────────────────────────┘
 ```
 
 - **Header** (row 0, 8 px): session name, truncated; page indicator (`1/3`) on
   the right while rotating.
-- **Context bar** (y=16, 12 px tall): the visual anchor. Percentage drawn
-  inside with XOR so it stays readable over fill and emptiness; hatched fill
-  when usage is unknown.
-- **Tokens / cost** (y=32/40): optional lines; everything not in `show` simply
-  isn't drawn, and the page never reflows (positions are fixed).
+- **Numbers** (y=10/18): tokens and cost lines; everything not in `show`
+  simply isn't drawn, and the page never reflows (positions are fixed).
+- **Context bar** (y=44, 12 px tall): sits directly above the footer — the
+  visual anchor at the bottom of the page. Percentage drawn inside with XOR so
+  it stays readable over fill and emptiness; hatched fill when usage is
+  unknown.
 - **Footer** (y=56, inverted strip): left slot = state symbol — ▶ working,
   pause bars idle; right slot = model name. Phase-2 sprites replace the symbol
   in place.

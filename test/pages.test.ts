@@ -65,8 +65,8 @@ test("shows the splash first, then the session page", () => {
 
   const page = compositor.buildFrame();
   assert.equal(pixelAt(page, 0, 63), 1); // inverted footer: bottom-left corner lit
-  assert.equal(pixelAt(page, 63, 10), 1); // bar top border at y=10
-  assert.equal(pixelAt(page, 63, 21), 1); // bar bottom border at y=21
+  assert.equal(pixelAt(page, 63, 44), 1); // bar top border at y=44
+  assert.equal(pixelAt(page, 63, 55), 1); // bar bottom border at y=55
 });
 
 test("renders the idle screen when no sessions are registered", () => {
@@ -127,10 +127,10 @@ test("unknown context usage renders a hatched bar, not an empty one", () => {
   const compositor = new Compositor({ font, splashSeconds: 0 });
   compositor.setSession(session({ ctxPercent: null, ctxTokens: null, ctxWindow: null }));
   const page = compositor.buildFrame();
-  // Inside the bar (y=20): hatching lights columns 1, 5, 9… and not 2.
-  assert.equal(pixelAt(page, 1, 20), 1);
-  assert.equal(pixelAt(page, 2, 20), 0);
-  assert.equal(pixelAt(page, 5, 20), 1);
+  // Inside the bar (y=50): hatching lights columns 1, 5, 9… and not 2.
+  assert.equal(pixelAt(page, 1, 50), 1);
+  assert.equal(pixelAt(page, 2, 50), 0);
+  assert.equal(pixelAt(page, 5, 50), 1);
 });
 
 test("the percentage is drawn XOR-style inside the bar", () => {
@@ -138,7 +138,7 @@ test("the percentage is drawn XOR-style inside the bar", () => {
   const scratch: DisplayFrame = { width: 128, height: 64, pixels: new Uint8Array(128 * 64) };
   const label = "42%";
   const x0 = Math.floor((128 - textWidth(label)) / 2);
-  drawText(scratch, font, label, x0, 12);
+  drawText(scratch, font, label, x0, 46);
   const firstSet = scratch.pixels.findIndex((p) => p === 1);
   assert.ok(firstSet >= 0);
 
@@ -155,7 +155,7 @@ test("tokens appear only when requested; hidden cost and model leave no trace", 
   compositor.setSession(session({ show: ["bar", "tokens"] }));
   const page = compositor.buildFrame();
   const scratch: DisplayFrame = { width: 128, height: 64, pixels: new Uint8Array(128 * 64) };
-  drawText(scratch, font, "84k/200k", 1, 25);
+  drawText(scratch, font, "84k/200k", 1, 10);
   assert.ok(scratch.pixels.some((p) => p === 1));
   // Every glyph pixel of the tokens line must also be lit on the page (it was drawn there too).
   let match = true;
