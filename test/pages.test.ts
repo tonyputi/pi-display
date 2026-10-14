@@ -65,7 +65,8 @@ test("shows the splash first, then the session page", () => {
 
   const page = compositor.buildFrame();
   assert.equal(pixelAt(page, 0, 63), 1); // inverted footer: bottom-left corner lit
-  assert.equal(pixelAt(page, 63, 16), 1); // bar border at y=16
+  assert.equal(pixelAt(page, 63, 10), 1); // bar top border at y=10
+  assert.equal(pixelAt(page, 63, 21), 1); // bar bottom border at y=21
 });
 
 test("renders the idle screen when no sessions are registered", () => {
@@ -137,7 +138,7 @@ test("the percentage is drawn XOR-style inside the bar", () => {
   const scratch: DisplayFrame = { width: 128, height: 64, pixels: new Uint8Array(128 * 64) };
   const label = "42%";
   const x0 = Math.floor((128 - textWidth(label)) / 2);
-  drawText(scratch, font, label, x0, 18);
+  drawText(scratch, font, label, x0, 12);
   const firstSet = scratch.pixels.findIndex((p) => p === 1);
   assert.ok(firstSet >= 0);
 
@@ -154,7 +155,7 @@ test("tokens appear only when requested; hidden cost and model leave no trace", 
   compositor.setSession(session({ show: ["bar", "tokens"] }));
   const page = compositor.buildFrame();
   const scratch: DisplayFrame = { width: 128, height: 64, pixels: new Uint8Array(128 * 64) };
-  drawText(scratch, font, "84k/200k", 1, 32);
+  drawText(scratch, font, "84k/200k", 1, 25);
   assert.ok(scratch.pixels.some((p) => p === 1));
   // Every glyph pixel of the tokens line must also be lit on the page (it was drawn there too).
   let match = true;

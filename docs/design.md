@@ -74,8 +74,9 @@ y=56  │ ▓▓ ● WORK    gpt-6 ▓▓▓ │  footer (inverted): state left,
   when usage is unknown.
 - **Tokens / cost** (y=32/40): optional lines; everything not in `show` simply
   isn't drawn, and the page never reflows (positions are fixed).
-- **Footer** (y=56, inverted strip): left slot = state glyph (8×8) + `WORK` /
-  `IDLE`; right slot = model name. Phase-2 sprites replace the glyph in place.
+- **Footer** (y=56, inverted strip): left slot = state symbol — ▶ working,
+  pause bars idle; right slot = model name. Phase-2 sprites replace the symbol
+  in place.
 
 Splash — shown by the daemon **at service start** (logo, ~5 s), so the logo is
 always seen at least once per boot:

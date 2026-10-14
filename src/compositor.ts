@@ -5,10 +5,10 @@ import type { SessionData } from "./protocol.ts";
 
 export const SCREEN_WIDTH = 128;
 export const SCREEN_HEIGHT = 64;
-const BAR_Y = 16;
+const BAR_Y = 10;
 const BAR_HEIGHT = 12;
-const TOKENS_Y = 32;
-const COST_Y = 40;
+const TOKENS_Y = 25;
+const COST_Y = 34;
 const FOOTER_Y = 56;
 const FOOTER_HEIGHT = 8;
 const SPLASH_SECONDS = 5;
@@ -128,17 +128,17 @@ export class Compositor {
 
   private drawFooter(frame: DisplayFrame, page: SessionData, show: Set<string>): void {
     fillRect(frame, 0, FOOTER_Y, SCREEN_WIDTH, FOOTER_HEIGHT);
-    let leftEdge = 2;
     if (show.has("state")) {
-      // State glyph: solid square when working, hollow when idle.
-      if (page.state === "working") fillRect(frame, 2, FOOTER_Y + 2, 4, 4, 0);
-      else drawRect(frame, 2, FOOTER_Y + 2, 4, 4, 0);
-      const label = page.state === "working" ? "WORK" : "IDLE";
-      drawText(frame, this.font, label, 8, FOOTER_Y + 1, 0);
-      leftEdge = 8 + textWidth(label);
+      // Working: right-pointing triangle (play). Idle: pause bars.
+      if (page.state === "working") {
+        for (let r = 0; r < 7; r++) fillRect(frame, 2, FOOTER_Y + 1 + r, 1 + Math.min(r, 6 - r), 1, 0);
+      } else {
+        fillRect(frame, 2, FOOTER_Y + 2, 2, 5, 0);
+        fillRect(frame, 5, FOOTER_Y + 2, 2, 5, 0);
+      }
     }
     if (show.has("model") && page.model) {
-      const model = truncateToWidth(page.model, SCREEN_WIDTH - 2 - leftEdge);
+      const model = truncateToWidth(page.model, SCREEN_WIDTH - 2 - 8);
       if (model) drawText(frame, this.font, model, SCREEN_WIDTH - 1 - textWidth(model), FOOTER_Y + 1, 0);
     }
   }
