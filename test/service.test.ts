@@ -5,23 +5,10 @@ import { dirname, join } from "node:path";
 import test from "node:test";
 import { connect } from "node:net";
 import { DisplayClient } from "../src/client.ts";
-import type { DisplayDriver, DisplayFrame } from "../src/display.ts";
+import type { DisplayFrame } from "../src/display.ts";
 import { decodeFrame, encodeFrame } from "../src/protocol.ts";
 import { DisplayService } from "../src/service.ts";
-
-class FakeDisplay implements DisplayDriver {
-  readonly width = 128;
-  readonly height = 64;
-  readonly frames: DisplayFrame[] = [];
-  failRender = false;
-
-  async render(frame: DisplayFrame): Promise<void> {
-    if (this.failRender) throw new Error("render failed");
-    this.frames.push(frame);
-  }
-
-  async close(): Promise<void> {}
-}
+import { FakeDisplay } from "./fakedisplay.ts";
 
 function uniqueSocketPath(): string {
   return join(tmpdir(), `pi-display-test-${process.pid}-${Math.random().toString(36).slice(2)}.sock`);

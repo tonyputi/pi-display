@@ -7,9 +7,57 @@ export interface EncodedFrame {
   pixels: string;
 }
 
-export type ServiceRequest = { type: "show"; frame: EncodedFrame };
+export type SessionState = "working" | "idle";
+
+/** One pi session as reported by its extension; null means unknown right now. */
+export interface SessionData {
+  id: string;
+  name: string;
+  model: string | null;
+  ctxPercent: number | null;
+  ctxTokens: number | null;
+  ctxWindow: number | null;
+  cost: number | null;
+  state: SessionState;
+}
+
+export type ServiceRequest =
+  | { type: "show"; frame: EncodedFrame }
+  | { type: "session"; session: SessionData }
+  | { type: "session_end"; id: string };
 
 export type ServiceResponse = { type: "ok" } | { type: "error"; message: string };
+
+/** Validate a session upsert payload; throws with a human-readable message. */
+export function parseSession(value: unknown): SessionData {
+  const raw = value as Record<string, unknown> | null;
+  if (!raw || typeof raw.id !== "string" || !raw.id) throw new Error("invalid session: expected a non-empty id");
+  if (typeof raw.name !== "string") throw new Error("invalid session: expected a name");
+  if (raw.state !== "working" && raw.state !== "idle") throw new Error('invalid session: state must be "working" or "idle"');
+  for (const key of ["ctxPercent", "ctxTokens", "ctxWindow", "cost"] as const) {
+    const v = raw[key];
+    if (v !== null && (typeof v !== "number" || !Number.isFinite(v))) {
+      throw new Error(`invalid session: ${key} must be a number or null`);
+    }
+  }
+  if (raw.model !== null && typeof raw.model !== "string") throw new Error("invalid session: model must be a string or null");
+  return {
+    id: raw.id,
+    name: raw.name,
+    model: raw.model as string | null,
+    ctxPercent: raw.ctxPercent as number | null,
+    ctxTokens: raw.ctxTokens as number | null,
+    ctxWindow: raw.ctxWindow as number | null,
+    cost: raw.cost as number | null,
+    state: raw.state,
+  };
+}
+
+/** Validate a session_end id; throws with a human-readable message. */
+export function parseSessionId(value: unknown): string {
+  if (typeof value !== "string" || !value) throw new Error("invalid session_end: expected a non-empty id");
+  return value;
+}
 
 export function encodeFrame(frame: DisplayFrame): EncodedFrame {
   return {

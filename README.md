@@ -16,8 +16,11 @@ flowchart LR
 - Display contract: `src/display.ts` (`DisplayDriver` + a row-major monochrome `DisplayFrame`)
 - Hardware backend: `src/drivers/ssd1306.ts`
 - Service: `src/service.ts` + `daemon/pi-displayd.ts` — owns the display, serves newline-delimited JSON requests (`src/protocol.ts`). The bound socket doubles as the single-instance lock.
+- Compositor: `src/compositor.ts` — turns session data into screens: splash, one page per session (header / context bar / numbers + cost / inverted status footer), idle screen, rotation. Pixels: `src/pixels.ts`; text: `src/font.ts`.
 - Client: `src/client.ts`; the extension (`index.ts`) connects at session start and shows the logo.
-- Assets: `assets/pi.pbm` loaded via `src/assets.ts` (portable bitmap, PBM P1).
+- Extension: `index.ts` — a sensor: on session events it pushes session data (name, context usage, cost, state) to the service over the socket.
+- Assets: `assets/pi.pbm` (portable bitmap, PBM P1) and `assets/font5x7.bin` (classic 5×7 font) loaded via `src/assets.ts` / `src/font.ts`.
+- Design: `docs/design.md` — screen layout, protocol v2, phases.
 
 The daemon runs as a system systemd service: it starts at boot, restarts on failure, and survives Pi exits with the last frame on screen. Concurrent Pi sessions all talk to the one daemon, and the display never receives concurrent writes.
 
@@ -44,6 +47,10 @@ pi --extension ./index.ts
 ```
 
 Tests are hardware-free: the service and protocol are covered with a fake `DisplayDriver` and a real Unix socket in the temp directory.
+
+## Credits
+
+- `assets/font5x7.bin`: the classic 5×7 fixed-width font (ASCII 32–126), extracted from [Adafruit GFX](https://github.com/adafruit/Adafruit-GFX-Library)'s `glcdfont.c` (BSD-3-Clause); the font data itself was placed in the public domain by Mark Jones.
 
 ## Direction
 
