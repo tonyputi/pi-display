@@ -122,16 +122,19 @@ the defaults; a broken project file falls back to the agent-wide value.
 to the daemon and will live in `~/.config/pi-display/config.json` when the
 mascot lands. Defaults until then: splash 5 s, rotation 4 s.
 
-## The mascot (phase 2)
+## The mascot (parked)
 
-The mascot owns **idle time**; data owns **busy time**. No conflict for the
-full screen:
+A screen-filling character with per-state animations was prototyped (procedural
+robot and CC0 sprite candidates) and parked: the user is researching sprites
+separately. Ideas that survive the experiment, for when it resumes:
 
-- No sessions → full-screen procedural blob (breathing, blinking, drawn with
-  fills — no sprite assets), 2–4 fps from the compositor tick.
-- Sessions active → the same character shrinks to an 8×8 sprite in the
-  footer's state slot (2 frames: blink).
-- Attention needed → full-screen inversion pulse.
+- The character owns **idle time**; data owns **busy time** — no conflict for
+  the full screen.
+- A sprite picked by the user drops in without code changes: frames are just
+  PBM assets, and the compositor already cycles them per state.
+- Conversion tooling (PNG decoder, sheet slicing) may be recovered from git
+  history (`tools/png.ts`, `tools/robot-pick.ts` and friends were removed from
+  the branch but live in history).
 
 ## Phases
 
@@ -141,7 +144,7 @@ full screen:
    the events above.
 2. **v2 — state icons**: animated glyph in the footer's left slot; attention
    flash takes over the whole frame (full inversion pulses) when input is
-   needed.
+   needed. The parked mascot returns here if the sprite research succeeds.
 3. **Later**: model name line, multiple status lines, maybe themes (inverted
    screensaver after long idle).
 
@@ -152,4 +155,3 @@ full screen:
 - Cost accuracy across model switches mid-session: acceptable as approximation?
 - Rotation order: alphabetical by name vs most-recently-active first?
 - Should `/display` gain a `next` subcommand to force the next page?
-- Blob proportions: rounder/bigger? Eye size and blink rate?
