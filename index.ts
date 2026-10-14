@@ -1,12 +1,12 @@
 import { userInfo } from "node:os";
 import { fileURLToPath } from "node:url";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-import { loadPbmFrame } from "../src/assets.ts";
-import { DisplayClient } from "../src/client.ts";
-import { DEFAULT_SOCKET_PATH, defaultSocketPath } from "../src/service.ts";
+import { loadPbmFrame } from "./src/assets.ts";
+import { DisplayClient } from "./src/client.ts";
+import { DEFAULT_SOCKET_PATH, defaultSocketPath } from "./src/service.ts";
 
-const logoUrl = new URL("../assets/pi.pbm", import.meta.url);
-const daemonPath = fileURLToPath(new URL("../daemon/pi-displayd.ts", import.meta.url));
+const logoUrl = new URL("./assets/pi.pbm", import.meta.url);
+const daemonPath = fileURLToPath(new URL("./daemon/pi-displayd.ts", import.meta.url));
 
 export default function (pi: ExtensionAPI) {
   let client: DisplayClient | undefined;
