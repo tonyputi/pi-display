@@ -7,7 +7,7 @@ A [Pi](https://pi.dev) extension that drives I²C displays. The first implementa
 - Pi extension entry point: `extensions/index.ts`
 - Shared display contract: `src/display.ts` (`DisplayDriver` + a monochrome `DisplayFrame`)
 - Hardware backends: `src/drivers/ssd1306.ts`
-- Reusable bitmap asset loader: `src/assets.ts`; the Pi logo is a separate PBM asset in `assets/pi-logo.pbm`
+- Reusable bitmap asset loader: `src/assets.ts`; the Pi logo is a separate PBM asset in `assets/pi.pbm`
 - Tested setup: I²C bus 1 (`/dev/i2c-1`), address `0x3C`
 - At session start, initialize the display and render the logo asset; at shutdown, release the I²C handle and leave the image on screen.
 - No session notifications, polling, configuration UI, or alternate controllers yet.

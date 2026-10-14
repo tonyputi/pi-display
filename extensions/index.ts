@@ -9,7 +9,7 @@ export default function (pi: ExtensionAPI) {
   pi.on("session_start", async () => {
     try {
       display = await Ssd1306Display.open();
-      const logo = await loadPbmFrame(new URL("../assets/pi-logo.pbm", import.meta.url));
+      const logo = await loadPbmFrame(new URL("../assets/pi.pbm", import.meta.url));
       await display.render(logo);
       console.info("pi-display: Pi.dev logo shown on SSD1306 at I2C 0x3C");
     } catch (error) {

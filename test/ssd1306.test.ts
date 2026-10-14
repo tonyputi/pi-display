@@ -68,7 +68,7 @@ test("rejects frames with incompatible dimensions or pixel data", async () => {
 });
 
 test("loads the Pi logo from its separate PBM asset", async () => {
-  const logo = await loadPbmFrame(new URL("../assets/pi-logo.pbm", import.meta.url));
+  const logo = await loadPbmFrame(new URL("../assets/pi.pbm", import.meta.url));
   assert.equal(logo.width, 128);
   assert.equal(logo.height, 64);
   assert.equal(logo.pixels.length, 128 * 64);
