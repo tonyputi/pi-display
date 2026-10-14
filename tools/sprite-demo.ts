@@ -36,14 +36,22 @@ for (let row = 0; row < Math.floor(img.height / CELL.h); row++) {
 console.log(`extracted ${frames.length} expression frames`);
 
 const client = await DisplayClient.connect(defaultSocketPath());
+let running = true;
+const stop = () => {
+  running = false;
+};
+process.on("SIGINT", stop);
+process.on("SIGTERM", stop);
+
 try {
-  for (let round = 0; round < 3; round++) {
+  while (running) {
     for (const frame of frames) {
+      if (!running) break;
       await client.showFrame(frame);
       await new Promise((resolve) => setTimeout(resolve, 550));
     }
   }
-  console.log("demo done");
+  console.log("demo stopped — the last expression stays on screen");
 } finally {
   await client.close().catch(() => undefined);
 }
