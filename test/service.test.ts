@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import { existsSync } from "node:fs";
+import { existsSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import test from "node:test";
 import { connect } from "node:net";
 import { DisplayClient } from "../src/client.ts";
@@ -87,6 +87,7 @@ test("answers invalid JSON lines with an error response", async (t) => {
 
 test("creates the socket directory when missing", async (t) => {
   const socketPath = join(tmpdir(), `pi-display-test-${Math.random().toString(36).slice(2)}`, "nested", "pi-display.sock");
+  t.after(() => rmSync(dirname(dirname(socketPath)), { recursive: true, force: true }));
   const service = await DisplayService.create(socketPath);
   t.after(() => service.close());
   service.setDisplay(new FakeDisplay());
