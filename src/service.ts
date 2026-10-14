@@ -1,4 +1,5 @@
-import { unlinkSync } from "node:fs";
+import { mkdirSync, unlinkSync } from "node:fs";
+import { dirname } from "node:path";
 import { connect, createServer, type Server, type Socket } from "node:net";
 import type { DisplayDriver } from "./display.ts";
 import { decodeFrame, encodeMessage, type EncodedFrame, type ServiceResponse } from "./protocol.ts";
@@ -41,6 +42,7 @@ export class DisplayService {
     if (await isSocketAlive(socketPath)) {
       throw new Error(`another pi-display service is already listening on ${socketPath}`);
     }
+    mkdirSync(dirname(socketPath), { recursive: true });
     try {
       unlinkSync(socketPath);
     } catch (error) {

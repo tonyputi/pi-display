@@ -85,6 +85,17 @@ test("answers invalid JSON lines with an error response", async (t) => {
   assert.equal(JSON.parse(await response).type, "error");
 });
 
+test("creates the socket directory when missing", async (t) => {
+  const socketPath = join(tmpdir(), `pi-display-test-${Math.random().toString(36).slice(2)}`, "nested", "pi-display.sock");
+  const service = await DisplayService.create(socketPath);
+  t.after(() => service.close());
+  service.setDisplay(new FakeDisplay());
+
+  const client = await DisplayClient.connect(socketPath);
+  t.after(() => client.close());
+  await client.showFrame({ width: 128, height: 64, pixels: new Uint8Array(128 * 64) });
+});
+
 test("client connect fails on a missing socket", async () => {
   await assert.rejects(DisplayClient.connect(join(tmpdir(), "pi-display-missing.sock"), 200), /not reachable/);
 });
