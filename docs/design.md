@@ -54,6 +54,28 @@ one-field protocol addition plus one glyph in the daemon.
 
 ## Screen layout (128×64, 5×7 bitmap font, 21 cols × 8 rows)
 
+The screen is divided into **fixed zones** — the eye learns where to look, the
+compositor never reflows, and future icons drop into an existing slot:
+
+```
+y=0   ┌────────────────────────┐
+      │ my-session       1/3   │  header: session name left, page indicator right
+y=16  │ ██████████░░░░░░░░░░   │  body: context bar (10 px tall, full width)
+y=32  │ ctx 42%   84k/200k     │  body: percent + tokens
+      │ $1.23                  │  body: cost
+y=56  │ ▓▓ ● WORK    gpt-6 ▓▓▓ │  footer (inverted): state left, model right
+      └────────────────────────┘
+```
+
+- **Header** (row 0, 8 px): session name, truncated to 17 chars; page
+  indicator (`1/3`) on the right while rotating.
+- **Body** (y=16..47): the context bar — the visual anchor, 128 px wide,
+  10 px tall, 1 px border, fill = `ctxPercent` (`null` → hatched fill) — plus
+  the numbers line and the cost line.
+- **Footer** (y=56..63, 8 px, inverted strip): left slot = state icon (8×8)
+  + `WORK` / `IDLE` (later: thinking spinner, attention flash); right slot =
+  model name. Phase-2 icons replace the 8×8 glyph in place — no reflow.
+
 Splash — shown by the daemon **at service start** (logo, ~5 s), so the logo is
 always seen at least once per boot:
 
@@ -65,20 +87,8 @@ always seen at least once per boot:
 └────────────────────────┘
 ```
 
-Session page — one session per screen:
-
-```
-┌────────────────────────┐
-│ my-session-name        │  row 0: session name (fallback: cwd basename, then "session")
-│ ██████████░░░░░░░░░░   │  rows 2: context bar, 124 px wide, fill = ctxPercent
-│ ctx 42%  84k/200k      │  row 3: percent + tokens
-│ $1.23          ● work  │  rows 4: cost left, state right (● work / ○ idle)
-│                        │  rows 5–7: free (phase-2 icon / model)
-└────────────────────────┘
-```
-
-Idle screen — zero sessions: small logo + "no sessions" (same splash frame at
-reduced size; no blank black periods).
+Idle screen — zero sessions: small logo centered + inverted footer reading
+`NO SESSIONS` (same zones, never a blank screen).
 
 - **1 session** → its page, static.
 - **N sessions** → rotate alphabetically by name, ~4 s per page, redrawn
@@ -99,8 +109,8 @@ reduced size; no blank black periods).
    session page (name, ctx bar, tokens, cost), extension pushes data on the
    events above.
 2. **v2 — state icons**: `state` field gains the current tool (`tool_execution_*`),
-   small animated icon in rows 5–7; attention flash when input is needed
-   (the "flashes when permission needed" pattern from the ESP32 projects).
+   animated glyph in the footer's left slot; attention flash takes over the
+   whole frame (full inversion pulses) when input is needed.
 3. **Later**: model name line, multiple status lines, maybe themes (inverted
    screensaver after long idle).
 
